@@ -4,18 +4,14 @@
 import argparse
 import json
 import random
-import secrets
 import logging
 from typing import Union
 
 from flask import Flask, request
-from flask_sslify import SSLify
 
 
 class TemperatureApiApp:
     http_server_app = Flask("TemperatureApiApp")
-    http_server_app_ssl = SSLify(http_server_app)
-    http_server_app.secret_key = secrets.token_hex()
 
     def __init__(self):
         self.http_server_app.logger.setLevel(logging.INFO)
@@ -23,46 +19,45 @@ class TemperatureApiApp:
 
     def setup_routes(self):
         self.http_server_app.add_url_rule(
-            "/temperature", methods=["GET"], view_func=self.temperature
+            "/temperature/<int:sensor_id>", methods=["GET"], view_func=self.temperature
         )
 
-    def run(self, host: str, port: int, ssl_context: Union[str, None] = None):
-        self.http_server_app.run(host=host, port=port, ssl_context=ssl_context)
+    def run(self, host: str, port: int):
+        self.http_server_app.run(host=host, port=port)
 
-    def temperature(self):
+    def temperature(self, sensor_id: int = 0):
         location = request.args.get("location", "", type=str)
-        sensorID = 0
 
         # If no location is provided, use a default based on sensor ID
         if location == "":
-            if sensorID == 1:
+            if sensor_id == 1:
                 location = "Living Room"
-            elif sensorID == 2:
+            elif sensor_id == 2:
                 location = "Bedroom"
-            elif sensorID == 3:
+            elif sensor_id == 3:
                 location = "Kitchen"
             else:
                 location = "Unknown"
 
         # If no sensor ID is provided, generate one based on location
-        if sensorID == "":
+        if sensor_id == 0:
             if location == "Living Room":
-                sensorID = 1
+                sensor_id = 1
             elif location == "Bedroom":
-                sensorID = 2
+                sensor_id = 2
             elif location == "Kitchen":
-                sensorID = 3
+                sensor_id = 3
             else:
-                sensorID = 0
+                sensor_id = 0
 
         result = random.randint(-30, 50)
         self.http_server_app.logger.info(
-            "Get Temperature result: %d. Location: %s; sensorID: %d.",
+            "Get Temperature result: %d. Location: %s; sensor_id: %d.",
             result,
             location,
-            sensorID,
+            sensor_id,
         )
-        return json.dumps({"temperature": result}), 200
+        return json.dumps({"value": result}), 200
 
 
 if __name__ == "__main__":
@@ -70,7 +65,7 @@ if __name__ == "__main__":
         prog="server_test.py",
         description="""
         Test server for TemperatureApiApp. Request examples:
-            curl --insecure -X GET  https://127.0.0.1:8081/temperature
+            curl -X GET http://127.0.0.1:8081/temperature
         """,
         epilog="Example: python3 server.py -p 8081",
     )
@@ -84,4 +79,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    TemperatureApiApp().run("0.0.0.0", args.port, ssl_context="adhoc")
+    TemperatureApiApp().run("0.0.0.0", args.port)
